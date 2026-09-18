@@ -204,7 +204,10 @@ async function buildStatus() {
 
   const closeReason = lastCloseReason();
   const base = {
+    // Lets a second launch recognise this as a running Stuff Transfer.
+    app: 'stuff-transfer',
     pcName: appState.pcName,
+    shortcutCreated: appState.shortcutCreated,
     tunnel: appState.tunnelStatus,
     tunnelError: appState.tunnelError,
     maxSessionBytes: MAX_SESSION_BYTES,

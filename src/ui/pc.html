@@ -116,6 +116,10 @@
     <div class="chip" title="This PC">Receiving on <b id="pcName">this PC</b></div>
   </header>
 
+  <p class="note hide" id="shortcutNote" role="status">
+    A <b>Stuff Transfer</b> shortcut is now on the Desktop. Next time, just double-click it.
+  </p>
+
   <main class="card">
     <!-- waiting for the tunnel -->
     <section id="viewBooting" aria-live="polite">
@@ -377,6 +381,8 @@ async function tick() {
 
   $('pcName').textContent = s.pcName;
   renderSaveDir(s);
+  // Only while nothing else is going on, so it never crowds a transfer.
+  $('shortcutNote').classList.toggle('hide', !s.shortcutCreated || !!s.session);
 
   if (s.tunnel === 'error') {
     $('errorText').textContent = s.tunnelError || '';

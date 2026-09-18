@@ -13,6 +13,8 @@
 import { serve, type ServerType } from '@hono/node-server';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { ensureDesktopShortcut } from './shortcut.js';
 import { createPcApp } from './server-pc.js';
 import { createPhoneApp } from './server-phone.js';
 import { startTunnel, type Tunnel } from './tunnel.js';
@@ -36,6 +38,9 @@ const HELP = `
     --dir <folder>   Default save folder (normally Desktop\\Received).
                      Students can still change it for one run on the PC page.
     --no-open        Do not open the browser automatically
+    --shortcut       Put the Desktop shortcut back (it is made once, on first run)
+    --no-shortcut    Do not create a Desktop shortcut
+    --new-instance   Start a new copy even if one is already running
     -v, --version    Show the version
     -h, --help       Show this help
 
@@ -46,10 +51,16 @@ const HELP = `
 interface Options {
   dir?: string;
   open: boolean;
+  shortcut: 'auto' | 'force' | 'off';
+  newInstance: boolean;
 }
 
 function parseArgs(argv: string[]): Options {
-  const opts: Options = { open: !process.env.STUFF_TRANSFER_NO_OPEN };
+  const opts: Options = {
+    open: !process.env.STUFF_TRANSFER_NO_OPEN,
+    shortcut: 'auto',
+    newInstance: false,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
@@ -61,6 +72,12 @@ function parseArgs(argv: string[]): Options {
       process.exit(0);
     } else if (arg === '--no-open') {
       opts.open = false;
+    } else if (arg === '--shortcut') {
+      opts.shortcut = 'force';
+    } else if (arg === '--no-shortcut') {
+      opts.shortcut = 'off';
+    } else if (arg === '--new-instance') {
+      opts.newInstance = true;
     } else if (arg === '--dir' || arg.startsWith('--dir=')) {
       const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : argv[++i];
       if (!value) fail('--dir needs a folder, for example:  --dir D:\\MyFiles');
@@ -108,9 +125,41 @@ function openBrowser(url: string): void {
   );
 }
 
+/**
+ * Is Stuff Transfer already running on this PC? Returns its page address.
+ *
+ * Double-clicking the Desktop shortcut a second time should bring back the
+ * page that is already open, not start a second copy with its own tunnel and
+ * another 40-second wait.
+ */
+async function findRunningCopy(): Promise<string | null> {
+  for (let port = PC_PORT; port < PC_PORT + 20; port++) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(800) });
+      const body = (await res.json()) as { app?: string };
+      if (body.app === 'stuff-transfer') return `http://127.0.0.1:${port}`;
+    } catch {
+      /* nothing there, or not us */
+    }
+  }
+  return null;
+}
+
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.dir) process.env.STUFF_TRANSFER_DIR = opts.dir;
+
+  if (!opts.newInstance) {
+    const running = await findRunningCopy();
+    if (running) {
+      console.log(`\n  Stuff Transfer is already running: ${running}`);
+      if (opts.open) {
+        console.log('  Opening it in the browser.\n');
+        openBrowser(running);
+      }
+      return;
+    }
+  }
 
   console.log(`\n  Stuff Transfer ${VERSION}\n`);
 
@@ -125,6 +174,21 @@ async function main(): Promise<void> {
   // Open the page straight away. It shows its own "preparing" screen, which
   // beats a student staring at a terminal for a minute wondering if it works.
   if (opts.open) openBrowser(pcUrl);
+
+  // In the background: a slow or failing shortcut must never delay the app.
+  if (opts.shortcut !== 'off') {
+    void ensureDesktopShortcut({
+      cliPath: fileURLToPath(import.meta.url),
+      force: opts.shortcut === 'force',
+    }).then((result) => {
+      if (result.status === 'created') {
+        appState.shortcutCreated = true;
+        console.log(`  Added a "Stuff Transfer" shortcut to the Desktop. Next time, just double-click it.`);
+      } else if (result.status === 'failed') {
+        console.log(`  (Could not add a Desktop shortcut: ${result.message})`);
+      }
+    });
+  }
 
   let tunnel: Tunnel | null = null;
 

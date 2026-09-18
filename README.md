@@ -22,6 +22,8 @@ npx stuff-transfer
 
 A page opens in the browser. It takes about 40 seconds to get ready. Then click **Receive files**, and a QR code appears.
 
+The first run also puts a **Stuff Transfer** shortcut on the Desktop. Next time, just double-click it. If the app is already running, the shortcut opens the existing page instead of starting a second copy.
+
 ### 2. On your phone
 
 1. Scan the QR code with your camera.
@@ -49,6 +51,7 @@ When you are finished, click **Done** on the PC. The code stops working immediat
 - **Never asks for an admin password.** It writes only to the user's own folders and installs nothing system-wide. Verified by running the full end-to-end test under a restricted Basic User token, including the first-run download.
 - **No firewall rule and no open port.** The app only makes outgoing connections. Its own page listens on `127.0.0.1`, so nothing on the network can reach it and Windows never shows a firewall prompt.
 - **Uses a Cloudflare quick tunnel** so phones on mobile data can reach the PC. On first run it downloads `cloudflared` (about 55 MB) from Cloudflare's official GitHub releases to `%LOCALAPPDATA%\stuff-transfer\bin\`.
+- **The Desktop shortcut** is created by the app on its first run, never by an npm install script. It points to a small launcher in `%LOCALAPPDATA%\stuff-transfer\`, which falls back to `npx stuff-transfer` if the cached copy is ever cleaned up. If PowerShell is locked down, a plain `Stuff Transfer.cmd` is placed on the Desktop instead.
 - **If a PC lacks Node.js:** the official `.msi` installer needs admin rights, but the **portable `.zip`** from nodejs.org does not. Extract it into the user's folder and run it from there.
 
 ### Options
@@ -59,6 +62,9 @@ npx stuff-transfer [options]
   --dir <folder>   Default save folder (normally Desktop\Received).
                    Students can still change it for one run on the PC page.
   --no-open        Do not open the browser automatically
+  --shortcut       Put the Desktop shortcut back (it is made once, on first run)
+  --no-shortcut    Do not create a Desktop shortcut
+  --new-instance   Start a new copy even if one is already running
   -v, --version    Show the version
   -h, --help       Show this help
 ```

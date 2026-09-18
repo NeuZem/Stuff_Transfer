@@ -7,6 +7,8 @@ export const appState = {
   tunnelUrl: null as string | null,
   tunnelError: null as string | null,
   pcName: process.env.COMPUTERNAME || process.env.HOSTNAME || 'this PC',
+  /** A Desktop shortcut was made during this run; the page mentions it once. */
+  shortcutCreated: false,
   /** Restarts the tunnel after a failure. Set by the CLI. */
   retryTunnel: null as (() => void) | null,
 };

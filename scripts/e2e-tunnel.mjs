@@ -29,11 +29,12 @@ const receiveDir = await mkdtemp(path.join(tmpdir(), 'stuff-transfer-e2e-'));
 console.log('\n=== Stuff Transfer — end-to-end check ===\n');
 console.log('Starting the app...');
 
-const app = spawn(process.execPath, ['dist/cli.js'], {
+const app = spawn(process.execPath, ['dist/cli.js', '--no-shortcut', '--new-instance'], {
   env: { ...process.env, STUFF_TRANSFER_DIR: receiveDir, STUFF_TRANSFER_NO_OPEN: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
-app.stdout.on('data', (b) => process.stdout.write(`  | ${b}`));
+let appOutput = '';
+app.stdout.on('data', (b) => { appOutput += b; process.stdout.write(`  | ${b}`); });
 app.stderr.on('data', (b) => process.stdout.write(`  | ${b}`));
 
 const cleanup = async () => {
@@ -145,16 +146,16 @@ try {
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 
+/**
+ * The port OUR copy printed. Probing 7777 upward would find any other copy
+ * already running on this PC (a preview, say) and test that one instead.
+ */
 async function findPcServer() {
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
-    for (let port = 7777; port < 7797; port++) {
-      try {
-        const res = await fetch(`http://127.0.0.1:${port}/api/status`);
-        if (res.ok) return `http://127.0.0.1:${port}`;
-      } catch { /* not this one */ }
-    }
-    await new Promise((r) => setTimeout(r, 500));
+    const match = appOutput.match(/PC page:\s+(http:\/\/127\.0\.0\.1:\d+)/);
+    if (match) return match[1];
+    await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error('PC server never came up');
 }
