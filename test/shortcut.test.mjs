@@ -9,7 +9,7 @@ import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, unlink } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,7 +113,11 @@ describe('creating the shortcut', () => {
       `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${result.path.replace(/'/g, "''")}'); "$($s.TargetPath)|$($s.IconLocation)"`,
     ]);
     const [target, icon] = stdout.trim().split('|');
-    assert.equal(target, path.join(appDataDir(), 'Stuff Transfer.cmd'));
+    // Compare locations, not spellings: Windows may hand back the long name
+    // ("runneradmin") for a folder the temp dir spelled in 8.3 short form
+    // ("RUNNER~1"), as happens on GitHub's Windows runners.
+    const canonical = (p) => realpathSync.native(p).toLowerCase();
+    assert.equal(canonical(target), canonical(path.join(appDataDir(), 'Stuff Transfer.cmd')));
     assert.match(icon, /stuff-transfer\.ico,0$/);
   });
 
