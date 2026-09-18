@@ -33,8 +33,8 @@ const HELP = `
     npx stuff-transfer [options]
 
   Options
-    --dir <folder>   Save received files here
-                     (default: Desktop\\Received)
+    --dir <folder>   Default save folder (normally Desktop\\Received).
+                     Students can still change it for one run on the PC page.
     --no-open        Do not open the browser automatically
     -v, --version    Show the version
     -h, --help       Show this help
