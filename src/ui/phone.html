@@ -5,115 +5,190 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Send to PC</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📤</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111113'/%3E%3Cpath d='M16 24V10m-6 6 6-6 6 6' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preload" href="/assets/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  /* Dark by default; follows the phone's light/dark setting. */
-  :root{
-    --bg:#0b1020; --card:#141a2e; --line:#243050; --track:#1d2742; --text:#e8ecff;
-    --muted:#95a0c4; --accent:#5b8cff; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
+  /* Archivo, NeuZem's typeface. Served by the PC itself, never fetched from Google. */
+  @font-face{
+    font-family:"Archivo"; font-style:normal; font-weight:400 700; font-display:swap;
+    src:url("/assets/archivo-latin.woff2") format("woff2");
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
   }
-  @media (prefers-color-scheme: light){
+
+  /* Monochrome, after the NeuZem design language. Follows the phone's theme. */
+  :root{
+    --bg:#fafafa; --surface:#fff; --inset:#f4f4f5; --line:#ececef; --line-strong:#dcdce0;
+    --text:#111113; --text-2:#3f3f46; --muted:#62656d;
+    --primary:#111113; --on-primary:#fff; --track:#ececef;
+    --ok:#15803d; --bad:#c62828; --warn:#a15c07;
+    --shadow:0 1px 2px rgba(17,17,19,.03),0 16px 40px -20px rgba(17,17,19,.12);
+    --ease:cubic-bezier(.25,.1,.25,1);
+  }
+  @media (prefers-color-scheme: dark){
     :root{
-      --bg:#f3f5fa; --card:#ffffff; --line:#dbe1ec; --track:#e3e8f2; --text:#141a2e;
-      --muted:#5b6583; --accent:#2f62e8; --ok:#15803d; --bad:#dc2626; --warn:#b45309;
+      --bg:#0b0b0c; --surface:#141416; --inset:#1b1b1e; --line:#26262a; --line-strong:#34343a;
+      --text:#f4f4f5; --text-2:#d4d4d8; --muted:#a1a1aa;
+      --primary:#f4f4f5; --on-primary:#111113; --track:#26262a;
+      --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.6);
     }
   }
+
   *{box-sizing:border-box}
   body{
     margin:0;min-height:100svh;background:var(--bg);color:var(--text);
-    font-family:system-ui,-apple-system,sans-serif;padding:1.25rem;
-    padding-bottom:calc(1.25rem + env(safe-area-inset-bottom));
+    font-family:"Archivo",ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-size:16px;line-height:1.5;letter-spacing:-.006em;-webkit-font-smoothing:antialiased;
+    padding:24px 16px calc(24px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;align-items:center;
   }
-  h1{font-size:1.25rem;margin:.25rem 0 .1rem}
-  .pin{font-size:1.6rem;font-weight:700;letter-spacing:.3em;color:var(--accent);margin:.35rem 0}
-  .muted{color:var(--muted);font-size:.85rem;line-height:1.55}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem;margin-top:1rem}
+  .page{width:100%;max-width:420px;display:grid;gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+        box-shadow:var(--shadow);padding:28px 20px 22px}
+  .center{text-align:center}
+
+  .brand-mark{width:44px;height:44px;margin:0 auto 16px;border-radius:10px;background:var(--primary);
+              color:var(--on-primary);display:grid;place-items:center}
+  h1{font-size:1.375rem;font-weight:600;letter-spacing:-.02em;margin:0;line-height:1.25}
+  .pin{font-size:1.75rem;font-weight:700;letter-spacing:.3em;padding-left:.3em;margin:14px 0 2px;
+       font-variant-numeric:tabular-nums}
+  .muted{color:var(--muted);font-size:.875rem;line-height:1.55;margin:4px 0}
+  .muted b{color:var(--text-2)}
+
   button{
-    font:inherit;font-weight:600;border:0;border-radius:12px;padding:1rem;width:100%;
-    background:var(--accent);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent
+    font:inherit;font-weight:600;font-size:1rem;border-radius:12px;min-height:48px;width:100%;
+    padding:0 16px;border:1px solid var(--primary);background:var(--primary);color:var(--on-primary);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+    transition:opacity 160ms var(--ease),background-color 160ms var(--ease),transform 120ms var(--ease);
   }
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
-  button:disabled{opacity:.5}
-  .stack{display:grid;gap:.6rem;margin-top:1rem}
+  button:active{transform:scale(.985)}
+  button:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+  button.ghost{background:var(--surface);border-color:var(--line-strong);color:var(--text)}
+  button:disabled{opacity:.45}
+  .actions{display:grid;gap:10px;margin-top:22px}
   input[type=file]{display:none}
-  .file{border-top:1px solid var(--line);padding:.6rem 0;font-size:.9rem}
+
+  /* ---- picked files ---- */
+  .section{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+  .total{display:flex;justify-content:space-between;align-items:baseline;font-size:.9375rem;font-weight:600}
+  .total .muted{font-weight:500;font-variant-numeric:tabular-nums}
+  .file{border-top:1px solid var(--line);padding:11px 0;font-size:.875rem}
   .file:first-child{border-top:0}
-  .top{display:flex;justify-content:space-between;gap:.75rem}
-  .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .bar{height:4px;background:var(--track);border-radius:99px;margin-top:.45rem;overflow:hidden}
-  .bar > i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
-  .bar.thick{height:8px}
+  .top{display:flex;justify-content:space-between;gap:12px}
+  .top .muted{margin:0;flex:none;font-variant-numeric:tabular-nums}
+  .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  .bar{height:4px;background:var(--track);border-radius:99px;margin-top:8px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;background:var(--text);transition:width .25s var(--ease)}
+  .bar.thick{height:6px}
   .done .bar > i{background:var(--ok)}
   .err{color:var(--bad)}
-  .total{font-size:.9rem;display:flex;justify-content:space-between;margin-bottom:.5rem}
-  .big{font-size:2.6rem;text-align:center}
-  .center{text-align:center}
-  .hide{display:none}
-  .status{margin-top:.6rem;font-size:.88rem;min-height:1.3em}
+
+  .status{margin-top:8px;font-size:.875rem;min-height:1.3em;font-variant-numeric:tabular-nums}
   .waiting{color:var(--warn)}
-  .waiting::before{content:"";display:inline-block;width:.55em;height:.55em;border-radius:50%;
-    background:var(--warn);margin-right:.45em;animation:pulse 1.2s ease-in-out infinite}
+  .waiting::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--warn);margin-right:8px;vertical-align:1px;animation:pulse 1.2s ease-in-out infinite}
   @keyframes pulse{50%{opacity:.25}}
+
+  /* ---- done / failed ---- */
+  .icon-circle{width:56px;height:56px;margin:4px auto 14px;border-radius:50%;border:1px solid var(--line-strong);
+               display:grid;place-items:center;color:var(--text)}
+  .icon-circle.ok{color:var(--ok);border-color:currentColor}
+  .icon-circle.bad{color:var(--bad);border-color:currentColor}
+
+  /* "A product of NeuZem", after the NeuZem site. Deliberately not a link. */
+  .brand-credit{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 0;
+                font-size:.75rem;font-weight:500;color:var(--muted);white-space:nowrap}
+  .brand-credit img{display:block;height:13px;width:auto;opacity:.7}
+
+  .hide{display:none !important}
+  @media (prefers-reduced-motion: reduce){
+    .waiting::before{animation:none} .bar > i,button{transition:none}
+  }
 </style>
 </head>
 <body>
+<div class="page">
 
-<div id="viewPick">
-  <div class="center">
-    <h1>Send to PC</h1>
-    <div class="pin" id="pin">----</div>
-    <p class="muted">The PC should show these same 4 digits.</p>
-  </div>
-
-  <div class="stack" id="pickButtons">
-    <button id="btnFiles">Choose files</button>
-    <button class="ghost" id="btnFolder">Choose a folder</button>
-  </div>
-
-  <!-- iPhones cannot pick folders in a browser; zipping is the way round it. -->
-  <p class="muted hide" id="iosTip">
-    To send a folder from an iPhone: in the Files app, long-press the folder and choose
-    <b>Compress</b>, then send the .zip. The PC can unpack it.
-  </p>
-
-  <input type="file" id="inpFiles" multiple>
-  <input type="file" id="inpFolder" webkitdirectory directory multiple>
-
-  <div class="card hide" id="picked">
-    <div class="total"><span id="count">0 files</span><span class="muted" id="size">0 MB</span></div>
-    <p class="muted" id="dataNote"></p>
-
-    <!-- whole-batch progress, shown while sending -->
-    <div id="overall" class="hide">
-      <div class="bar thick"><i id="overallBar"></i></div>
-      <div class="status" id="statusLine" role="status" aria-live="polite"></div>
+<main class="card">
+  <div id="viewPick">
+    <div class="center">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </div>
+      <h1>Send to PC</h1>
+      <div class="pin" id="pin" aria-label="Check code">----</div>
+      <p class="muted">The PC should show these same 4 digits.</p>
     </div>
 
-    <div id="list" style="margin-top:.5rem"></div>
+    <div class="actions" id="pickButtons">
+      <button id="btnFiles">Choose files</button>
+      <button class="ghost" id="btnFolder">Choose a folder</button>
+    </div>
+
+    <!-- iPhones cannot pick folders in a browser; zipping is the way round it. -->
+    <p class="muted hide" id="iosTip" style="margin-top:14px">
+      To send a folder from an iPhone: in the Files app, long-press the folder and choose
+      <b>Compress</b>, then send the .zip. The PC can unpack it.
+    </p>
+
+    <input type="file" id="inpFiles" multiple>
+    <input type="file" id="inpFolder" webkitdirectory directory multiple>
+
+    <div class="section hide" id="picked">
+      <div class="total"><span id="count">0 files</span><span class="muted" id="size">0 MB</span></div>
+      <p class="muted" id="dataNote"></p>
+
+      <!-- whole-batch progress, shown while sending -->
+      <div id="overall" class="hide">
+        <div class="bar thick"><i id="overallBar"></i></div>
+        <div class="status" id="statusLine" role="status" aria-live="polite"></div>
+      </div>
+
+      <div id="list" style="margin-top:6px"></div>
+    </div>
+
+    <div class="actions">
+      <button id="btnSend" class="hide">Send to PC</button>
+    </div>
   </div>
 
-  <div class="stack">
-    <button id="btnSend" class="hide">Send to PC</button>
+  <div id="viewDone" class="hide center">
+    <div class="icon-circle ok" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1>Sent</h1>
+    <p class="muted" id="doneText"></p>
+    <div class="actions">
+      <button class="ghost" id="btnMore">Send more files</button>
+    </div>
   </div>
-</div>
 
-<div id="viewDone" class="hide center">
-  <div class="big">&#9989;</div>
-  <h1>Sent</h1>
-  <p class="muted" id="doneText"></p>
-  <div class="stack">
-    <button class="ghost" id="btnMore">Send more files</button>
+  <div id="viewFail" class="hide center">
+    <div class="icon-circle bad" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4.5M12 17h.01"/><path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    </div>
+    <h1 id="failTitle">Could not send</h1>
+    <p class="muted err" id="failText"></p>
+    <p class="muted hide" id="failKept">Everything already sent is kept on the PC. Trying again carries on from there.</p>
+    <div class="actions">
+      <button id="btnRetry">Try again</button>
+    </div>
   </div>
-</div>
+</main>
 
-<div id="viewFail" class="hide center">
-  <div class="big">&#9888;&#65039;</div>
-  <h1 id="failTitle">Could not send</h1>
-  <p class="muted err" id="failText"></p>
-  <p class="muted hide" id="failKept">Everything already sent is kept on the PC. Trying again carries on from there.</p>
-  <div class="stack">
-    <button id="btnRetry">Try again</button>
-  </div>
+<footer>
+  <p class="brand-credit">
+    <span>A product of</span>
+    <picture>
+      <source srcset="/assets/neuzem-wordmark-light.png" media="(prefers-color-scheme: dark)">
+      <img src="/assets/neuzem-wordmark-dark.png" alt="NeuZem" width="46" height="13">
+    </picture>
+  </p>
+</footer>
+
 </div>
 
 <script type="module">

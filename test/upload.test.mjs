@@ -266,7 +266,10 @@ describe('security', () => {
     // The guarantee students rely on: this server can receive, never send.
     const routes = createPhoneApp().routes.map((r) => `${r.method} ${r.path}`);
     const readable = routes.filter(
-      (r) => r.startsWith('GET') && !['GET /health', 'GET /t/:token', 'GET /api/file/:id'].includes(r),
+      (r) =>
+        r.startsWith('GET') &&
+        // /assets/:name serves a fixed in-memory list only; see the assets tests.
+        !['GET /health', 'GET /t/:token', 'GET /api/file/:id', 'GET /assets/:name'].includes(r),
     );
     assert.deepEqual(readable, [], `unexpected readable route(s): ${readable.join(', ')}`);
   });

@@ -73,9 +73,9 @@ describe('the icon', () => {
     assert.equal(pixel48(47, 47)[3], 0);
   });
 
-  test('the background is the app blue and the arrow is white', () => {
+  test('the background is the app\'s near-black and the arrow is white', () => {
     const [r, g, b, a] = pixel48(10, 24); // left of the arrow
-    assert.ok(b > 200 && r < 100 && a === 255, `expected blue, got ${[r, g, b, a]}`);
+    assert.ok(r < 40 && g < 40 && b < 40 && a === 255, `expected near-black, got ${[r, g, b, a]}`);
     const stem = pixel48(24, 22); // on the arrow's stem
     assert.ok(stem.slice(0, 3).every((c) => c > 200), `expected white, got ${stem}`);
   });

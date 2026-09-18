@@ -1,13 +1,14 @@
 /**
- * The app's logo as a Windows .ico file, drawn in code: a blue rounded
- * square with a white down arrow, matching the PC page.
+ * The app's logo as a Windows .ico file, drawn in code: a near-black
+ * rounded square with a white down arrow, matching the PC page's
+ * monochrome brand mark.
  *
  * Generated rather than shipped as a binary so the package stays text-only
  * and the icon can never drift from the page's design.
  */
 
 const SIZES = [16, 24, 32, 48, 64, 128];
-const BLUE = { r: 0x3b, g: 0x6c, b: 0xf0 };
+const INK = { r: 0x11, g: 0x11, b: 0x13 }; // the pages' --primary
 const SAMPLES = 4; // 4x4 supersampling per pixel, for smooth edges
 
 /** Build a multi-size .ico. Windows picks the right size for each view. */
@@ -88,9 +89,9 @@ function shade(px: number, py: number, size: number) {
   const cover = square / n;
   const white = square ? arrow / square : 0;
   return {
-    r: Math.round(BLUE.r + (255 - BLUE.r) * white),
-    g: Math.round(BLUE.g + (255 - BLUE.g) * white),
-    b: Math.round(BLUE.b + (255 - BLUE.b) * white),
+    r: Math.round(INK.r + (255 - INK.r) * white),
+    g: Math.round(INK.g + (255 - INK.g) * white),
+    b: Math.round(INK.b + (255 - INK.b) * white),
     a: Math.round(255 * cover),
   };
 }

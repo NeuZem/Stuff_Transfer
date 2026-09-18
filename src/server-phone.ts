@@ -21,6 +21,7 @@ import {
   MAX_SESSION_BYTES,
 } from './config.js';
 import { DiskFullError, IncomingFile } from './receiver.js';
+import { serveAsset } from './assets.js';
 import { getSession, maintain } from './session.js';
 import { freeSpace } from './safety.js';
 
@@ -31,6 +32,9 @@ export function createPhoneApp(): Hono {
 
   /** Tunnel health probe. Reveals nothing about the session. */
   app.get('/health', (c) => c.text('ok'));
+
+  /** Font and logo for the page. A fixed in-memory list; see assets.ts. */
+  app.get('/assets/:name', serveAsset);
 
   /** The page the QR opens. The token travels in the path. */
   app.get('/t/:token', (c) => {
@@ -339,16 +343,46 @@ function message(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** Same monochrome NeuZem look as the phone page, kept self-contained. */
 const expiredPage = () => `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Link expired</title>
 <style>
-  body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100svh;margin:0;
-       background:#0b1020;color:#e8ecff;text-align:center;padding:1.5rem}
-  h1{font-size:1.4rem;margin:.5rem 0}p{opacity:.75;line-height:1.6;max-width:22rem}
+  @font-face{font-family:"Archivo";font-weight:400 700;font-display:swap;
+             src:url("/assets/archivo-latin.woff2") format("woff2")}
+  :root{--bg:#fafafa;--surface:#fff;--line:#ececef;--line-strong:#dcdce0;--text:#111113;--muted:#62656d;
+        --shadow:0 1px 2px rgba(17,17,19,.03),0 16px 40px -20px rgba(17,17,19,.12)}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0b0b0c;--surface:#141416;--line:#26262a;--line-strong:#34343a;--text:#f4f4f5;--muted:#a1a1aa;
+          --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.6)}
+  }
+  body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px 16px;background:var(--bg);
+       color:var(--text);font-family:"Archivo",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .page{width:100%;max-width:420px;display:grid;gap:16px;text-align:center}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+        padding:32px 22px 28px}
+  .icon{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;border:1px solid var(--line-strong);
+        display:grid;place-items:center}
+  h1{font-size:1.375rem;font-weight:600;letter-spacing:-.02em;margin:0}
+  p{color:var(--muted);font-size:.9375rem;line-height:1.55;margin:8px 0 0}
+  p b{color:var(--text)}
+  .credit{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.75rem;font-weight:500;margin:0}
+  .credit img{display:block;height:13px;width:auto;opacity:.7}
 </style>
-<div>
-  <div style="font-size:3.5rem">&#8987;</div>
-  <h1>This link has expired</h1>
-  <p>Go back to the PC, click <b>Receive files</b> again, and scan the new QR code.</p>
-</div>`;
+<div class="page">
+  <main class="card">
+    <div class="icon" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    </div>
+    <h1>This link has expired</h1>
+    <p>Go back to the PC, click <b>Receive files</b> again, and scan the new QR code.</p>
+  </main>
+  <p class="credit"><span>A product of</span><picture>
+    <source srcset="/assets/neuzem-wordmark-light.png" media="(prefers-color-scheme: dark)">
+    <img src="/assets/neuzem-wordmark-dark.png" alt="NeuZem" width="46" height="13"></picture></p>
+</div>
+</html>`;

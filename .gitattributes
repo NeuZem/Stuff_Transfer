@@ -9,3 +9,5 @@
 *.jpg binary
 *.zip binary
 *.tgz binary
+*.woff2 binary
+*.ico binary

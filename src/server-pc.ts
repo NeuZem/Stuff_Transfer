@@ -11,6 +11,7 @@ import { platform } from 'node:os';
 import path from 'node:path';
 import QRCode from 'qrcode';
 import { ExtractError, extractZip } from './extract.js';
+import { serveAsset } from './assets.js';
 import { MAX_SESSION_BYTES } from './config.js';
 import {
   CLOSE_MESSAGES,
@@ -79,6 +80,7 @@ export function createPcApp(): Hono {
   app.use('*', localOnly());
 
   app.get('/', (c) => c.html(pcHtml));
+  app.get('/assets/:name', serveAsset);
 
   app.get('/api/status', async (c) => c.json(await buildStatus()));
 
