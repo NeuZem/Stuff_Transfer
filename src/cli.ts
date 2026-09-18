@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureDesktopShortcut } from './shortcut.js';
+import { runNewerIfAvailable } from './update.js';
 import { createPcApp } from './server-pc.js';
 import { createPhoneApp } from './server-phone.js';
 import { startTunnel, type Tunnel } from './tunnel.js';
@@ -41,6 +42,7 @@ const HELP = `
     --shortcut       Put the Desktop shortcut back (it is made once, on first run)
     --no-shortcut    Do not create a Desktop shortcut
     --new-instance   Start a new copy even if one is already running
+    --no-update      Do not check npm for a newer version
     -v, --version    Show the version
     -h, --help       Show this help
 
@@ -78,6 +80,8 @@ function parseArgs(argv: string[]): Options {
       opts.shortcut = 'off';
     } else if (arg === '--new-instance') {
       opts.newInstance = true;
+    } else if (arg === '--no-update') {
+      process.env.ST_NO_UPDATE = '1';
     } else if (arg === '--dir' || arg.startsWith('--dir=')) {
       const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : argv[++i];
       if (!value) fail('--dir needs a folder, for example:  --dir D:\\MyFiles');
@@ -159,6 +163,18 @@ async function main(): Promise<void> {
       }
       return;
     }
+  }
+
+  // Hand over to a newer published version if there is one. The newer copy
+  // also rewrites the Desktop shortcut's launcher, so it sticks.
+  const newerExit = await runNewerIfAvailable({
+    current: VERSION,
+    selfPath: fileURLToPath(import.meta.url),
+    argv: process.argv.slice(2),
+  });
+  if (newerExit !== null) {
+    process.exitCode = newerExit;
+    return;
   }
 
   console.log(`\n  Stuff Transfer ${VERSION}\n`);
