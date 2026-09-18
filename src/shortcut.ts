@@ -13,8 +13,9 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { copyFile, mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import path from 'node:path';
 import { makeIco } from './icon.js';
@@ -78,14 +79,31 @@ export async function ensureDesktopShortcut(opts: { cliPath: string; force?: boo
     await mkdir(dir, { recursive: true });
 
     const launcher = path.join(dir, `${NAME}.cmd`);
-    const icon = path.join(dir, 'stuff-transfer.ico');
     await writeFile(launcher, buildLauncher({ cliPath: opts.cliPath, nodePath: process.execPath }));
-    await writeFile(icon, makeIco());
+
+    // The icon's file name carries a hash of its contents. Windows caches
+    // shortcut icons by path, so rewriting the same file with a new design
+    // leaves the old picture on the Desktop; a new path forces a reload.
+    const ico = makeIco();
+    const icon = path.join(dir, `stuff-transfer-${createHash('sha256').update(ico).digest('hex').slice(0, 10)}.ico`);
+    if (!existsSync(icon)) await writeFile(icon, ico);
 
     // Once only. A student who deletes the shortcut should not get it back
     // on every start; --shortcut brings it back on purpose.
     const marker = path.join(dir, 'shortcut-created.json');
-    if (existsSync(marker) && !opts.force) return { status: 'exists' };
+    if (existsSync(marker) && !opts.force) {
+      // But a shortcut that is still there should pick up a new icon.
+      const existing = readMarker(marker);
+      if (existing?.endsWith('.lnk') && existsSync(existing)) {
+        try {
+          await updateLnkIcon(existing, icon);
+          await removeOldIcons(dir, icon);
+        } catch {
+          /* keep the old icon; never let this stop the app */
+        }
+      }
+      return { status: 'exists' };
+    }
 
     let created: string;
     try {
@@ -98,10 +116,50 @@ export async function ensureDesktopShortcut(opts: { cliPath: string; force?: boo
     }
 
     await writeFile(marker, JSON.stringify({ createdAt: new Date().toISOString(), path: created }, null, 2));
+    await removeOldIcons(dir, icon).catch(() => {});
     return { status: 'created', path: created };
   } catch (e) {
     return { status: 'failed', message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+function readMarker(marker: string): string | null {
+  try {
+    return (JSON.parse(readFileSync(marker, 'utf8')) as { path?: string }).path ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Icons from earlier versions, now unused. Kept only the current one. */
+async function removeOldIcons(dir: string, keep: string): Promise<void> {
+  for (const name of await readdir(dir)) {
+    const full = path.join(dir, name);
+    if (/^stuff-transfer(-[0-9a-f]+)?\.ico$/i.test(name) && full !== keep) await unlink(full).catch(() => {});
+  }
+}
+
+/**
+ * Point an existing shortcut at the current icon, only if it differs.
+ * Values reach PowerShell through environment variables, never the script.
+ */
+function updateLnkIcon(lnk: string, icon: string): Promise<void> {
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    '$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:ST_LNK)',
+    "$want = $env:ST_ICON + ',0'",
+    'if ($s.IconLocation -ne $want) { $s.IconLocation = $want; $s.Save() }',
+  ].join('; ');
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { env: { ...process.env, ST_LNK: lnk, ST_ICON: icon }, windowsHide: true, stdio: 'ignore' },
+    );
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
+  });
 }
 
 /** Best guess at the Desktop when we cannot ask Windows (the .lnk path asks). */

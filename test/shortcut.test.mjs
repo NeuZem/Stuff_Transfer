@@ -8,7 +8,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, unlink } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -118,7 +118,7 @@ describe('creating the shortcut', () => {
     // ("RUNNER~1"), as happens on GitHub's Windows runners.
     const canonical = (p) => realpathSync.native(p).toLowerCase();
     assert.equal(canonical(target), canonical(path.join(appDataDir(), 'Stuff Transfer.cmd')));
-    assert.match(icon, /stuff-transfer\.ico,0$/);
+    assert.match(icon, /stuff-transfer-[0-9a-f]{10}\.ico,0$/);
   });
 
   test('the launcher it points to really starts the app', { skip: !onWindows }, async () => {
@@ -139,5 +139,24 @@ describe('creating the shortcut', () => {
     const result = await ensureDesktopShortcut({ cliPath, force: true });
     assert.equal(result.status, 'created');
     assert.ok(existsSync(path.join(desktop, 'Stuff Transfer.lnk')));
+  });
+
+  test('a shortcut made by an older version picks up the new icon', { skip: !onWindows }, async () => {
+    // Recreate the situation after an upgrade: the shortcut still points at
+    // an old icon file. Windows caches icons by path, so only a NEW path makes
+    // the Desktop show the new design.
+    const lnk = path.join(desktop, 'Stuff Transfer.lnk');
+    const legacy = path.join(appDataDir(), 'stuff-transfer.ico');
+    await writeFile(legacy, 'old icon');
+    await run('powershell.exe', ['-NoProfile', '-Command',
+      `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnk.replace(/'/g, "''")}'); $s.IconLocation = '${legacy.replace(/'/g, "''")},0'; $s.Save()`]);
+
+    const result = await ensureDesktopShortcut({ cliPath }); // an ordinary start, not --shortcut
+    assert.equal(result.status, 'exists');
+
+    const { stdout } = await run('powershell.exe', ['-NoProfile', '-Command',
+      `(New-Object -ComObject WScript.Shell).CreateShortcut('${lnk.replace(/'/g, "''")}').IconLocation`]);
+    assert.match(stdout.trim(), /stuff-transfer-[0-9a-f]{10}\.ico,0$/, 'should point at the new, hashed icon');
+    assert.equal(existsSync(legacy), false, 'the old icon file should be cleaned up');
   });
 });

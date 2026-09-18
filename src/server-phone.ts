@@ -369,8 +369,15 @@ const expiredPage = () => `<!doctype html>
   h1{font-size:1.375rem;font-weight:600;letter-spacing:-.02em;margin:0}
   p{color:var(--muted);font-size:.9375rem;line-height:1.55;margin:8px 0 0}
   p b{color:var(--text)}
-  .credit{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.75rem;font-weight:500;margin:0}
-  .credit img{display:block;height:13px;width:auto;opacity:.7}
+  .credit{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.75rem;font-weight:500;margin:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  /* Drawn as a background, not an <img>: browsers offer no "Save image" or
+     "Copy image" for backgrounds, it cannot be dragged out, and phones show
+     no long-press save menu. (A screenshot still works; nothing stops that.) */
+  .wordmark{display:block;width:46px;height:13px;opacity:.7;
+            background:url("/assets/neuzem-wordmark-dark.png") no-repeat center/contain}
+  @media (prefers-color-scheme: dark){
+    .wordmark{background-image:url("/assets/neuzem-wordmark-light.png")}
+  }
   .credit-sep{opacity:.6}
 </style>
 <div class="page">
@@ -382,9 +389,7 @@ const expiredPage = () => `<!doctype html>
     <h1>This link has expired</h1>
     <p>Go back to the PC, click <b>Receive files</b> again, and scan the new QR code.</p>
   </main>
-  <p class="credit"><span>A product of</span><picture>
-    <source srcset="/assets/neuzem-wordmark-light.png" media="(prefers-color-scheme: dark)">
-    <img src="/assets/neuzem-wordmark-dark.png" alt="NeuZem" width="46" height="13"></picture>
+  <p class="credit"><span>A product of</span><span class="wordmark" role="img" aria-label="NeuZem"></span>
     <span class="credit-sep" aria-hidden="true">·</span><span>Open Source</span></p>
 </div>
 </html>`;
