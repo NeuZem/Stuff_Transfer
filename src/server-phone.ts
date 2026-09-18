@@ -371,6 +371,7 @@ const expiredPage = () => `<!doctype html>
   p b{color:var(--text)}
   .credit{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.75rem;font-weight:500;margin:0}
   .credit img{display:block;height:13px;width:auto;opacity:.7}
+  .credit-sep{opacity:.6}
 </style>
 <div class="page">
   <main class="card">
@@ -383,6 +384,7 @@ const expiredPage = () => `<!doctype html>
   </main>
   <p class="credit"><span>A product of</span><picture>
     <source srcset="/assets/neuzem-wordmark-light.png" media="(prefers-color-scheme: dark)">
-    <img src="/assets/neuzem-wordmark-dark.png" alt="NeuZem" width="46" height="13"></picture></p>
+    <img src="/assets/neuzem-wordmark-dark.png" alt="NeuZem" width="46" height="13"></picture>
+    <span class="credit-sep" aria-hidden="true">·</span><span>Open Source</span></p>
 </div>
 </html>`;

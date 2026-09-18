@@ -93,6 +93,8 @@ Every row has automated tests. Run `npm test` to check them yourself.
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright © 2026 NeuZem.
 
 The pages use the [Archivo](https://github.com/Omnibus-Type/Archivo) typeface, bundled under the [SIL Open Font License 1.1](src/ui/assets/Archivo-OFL.txt). The NeuZem name and logo belong to NeuZem and are not covered by the MIT license.
