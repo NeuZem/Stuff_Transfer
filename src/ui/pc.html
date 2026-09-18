@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stuff Transfer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>">
+<style>
+  /* Dark by default; follows the PC's light/dark setting. */
+  :root{
+    --bg:#0b1020; --card:#141a2e; --inset:#0d1426; --track:#1d2742; --line:#243050;
+    --text:#e8ecff; --muted:#95a0c4; --accent:#5b8cff; --accent-text:#fff;
+    --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --shadow:0 10px 40px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f3f5fa; --card:#ffffff; --inset:#f6f8fc; --track:#e3e8f2; --line:#dbe1ec;
+      --text:#141a2e; --muted:#5b6583; --accent:#2f62e8; --accent-text:#fff;
+      --ok:#15803d; --bad:#dc2626; --warn:#b45309; --shadow:0 10px 30px rgba(20,26,46,.08);
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100svh;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:2rem 1rem;
+  }
+  .wrap{width:100%;max-width:42rem}
+  header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem}
+  .brand{display:flex;align-items:center;gap:.6rem}
+  .logo{width:2.25rem;height:2.25rem;border-radius:10px;background:var(--accent);color:var(--accent-text);
+        display:grid;place-items:center;font-size:1.15rem}
+  h1{font-size:1.2rem;margin:0}
+  .tag{font-size:.8rem;color:var(--muted);margin:0}
+  .chip{font-size:.8rem;border:1px solid var(--line);border-radius:99px;padding:.3rem .7rem;color:var(--muted);
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+  .chip b{color:var(--text)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:2rem;
+        box-shadow:var(--shadow);text-align:center}
+  h2{font-size:1.1rem;margin:.35rem 0}
+  button{
+    font:inherit;font-weight:600;border:0;border-radius:10px;padding:.8rem 1.4rem;
+    background:var(--accent);color:var(--accent-text);cursor:pointer
+  }
+  button:hover{filter:brightness(1.08)}
+  button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  button.small{padding:.35rem .75rem;font-size:.8rem;border-radius:8px}
+  button:disabled{opacity:.55;cursor:not-allowed;filter:none}
+  .big{font-size:1.05rem;padding:1.05rem 2.4rem}
+  .row{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-top:1.5rem}
+  .steps{display:flex;justify-content:center;gap:1.25rem;flex-wrap:wrap;margin:1.75rem 0 0;padding:0;list-style:none}
+  .steps li{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:.45rem}
+  .steps b{width:1.4rem;height:1.4rem;border-radius:50%;background:var(--inset);border:1px solid var(--line);
+           display:grid;place-items:center;font-size:.75rem;color:var(--text)}
+  .qr{background:#fff;padding:14px;border-radius:14px;display:inline-block;line-height:0;border:1px solid var(--line)}
+  .qr img{width:250px;height:250px;display:block}
+  .pin{font-size:2rem;font-weight:700;letter-spacing:.35em;margin:1rem 0 .2rem;color:var(--accent);
+       font-variant-numeric:tabular-nums;padding-left:.35em}
+  .muted{color:var(--muted);font-size:.9rem;line-height:1.6;margin:.4rem 0}
+  code{background:var(--inset);border:1px solid var(--line);padding:.3rem .5rem;border-radius:6px;
+       font-size:.75rem;word-break:break-all;display:inline-block;max-width:100%;color:var(--muted)}
+  .files{margin-top:1.25rem;text-align:left;display:grid;gap:.5rem}
+  .file{background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:.65rem .85rem}
+  .file .top{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.9rem}
+  .file .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .file .right{display:flex;align-items:center;gap:.5rem;flex-shrink:0;color:var(--muted);font-size:.85rem}
+  .bar{height:5px;background:var(--track);border-radius:99px;margin-top:.5rem;overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+  .done .bar > i{background:var(--ok)}
+  .bar.thick{height:8px}
+  .stalled{color:var(--warn)}
+  .err{color:var(--bad)}
+  .ok{color:var(--ok)}
+  .note{background:var(--inset);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:8px;padding:.7rem .9rem;font-size:.9rem;margin:0 0 1.5rem;text-align:left}
+  .note.warn{border-left-color:var(--bad)}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);
+           border-radius:50%;animation:spin 1s linear infinite;margin:.5rem auto 1rem}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){ .spinner{animation-duration:3s} .bar > i{transition:none} }
+  footer{margin-top:1rem;text-align:center;font-size:.8rem;color:var(--muted)}
+  footer code{font-size:.72rem}
+  .hide{display:none !important}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">&#8595;</div>
+      <div>
+        <h1>Stuff Transfer</h1>
+        <p class="tag">Phone to PC. No accounts, nothing left logged in.</p>
+      </div>
+    </div>
+    <div class="chip" title="This PC">Receiving on <b id="pcName">this PC</b></div>
+  </header>
+
+  <main class="card">
+    <!-- waiting for the tunnel -->
+    <section id="viewBooting" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <h2>Getting ready</h2>
+      <p class="muted">Setting up a secure link for your phone.<br>This takes about 40 seconds.</p>
+    </section>
+
+    <!-- tunnel failed -->
+    <section id="viewError" class="hide" aria-live="assertive">
+      <h2>Could not set up the secure link</h2>
+      <p class="muted">Check that this PC is connected to the internet, then try again.</p>
+      <p><code id="errorText"></code></p>
+      <div class="row"><button id="btnRetryTunnel">Try again</button></div>
+    </section>
+
+    <!-- ready, no session -->
+    <section id="viewIdle" class="hide">
+      <p class="note hide" id="closeNote" role="status"></p>
+      <button class="big" id="btnStart">Receive files</button>
+      <ol class="steps">
+        <li><b>1</b>Click Receive</li>
+        <li><b>2</b>Scan with your phone camera</li>
+        <li><b>3</b>Pick files and send</li>
+      </ol>
+    </section>
+
+    <!-- session running -->
+    <section id="viewActive" class="hide">
+      <div id="qrBlock">
+        <div class="qr"><img id="qrImg" alt="QR code to open the upload page on your phone"></div>
+        <div class="pin" id="pin" aria-label="Check code">0000</div>
+        <p class="muted">Scan with your phone camera, then check your phone shows the same 4 digits.</p>
+        <p><code id="url"></code></p>
+        <p class="muted" id="rotate"></p>
+      </div>
+
+      <!-- once a phone is paired the code is no longer shown to the room -->
+      <div id="pairedBlock" class="hide" role="status">
+        <div style="font-size:2.3rem" aria-hidden="true">&#128241;</div>
+        <h2>Phone connected</h2>
+        <div class="pin" id="pinPaired">0000</div>
+        <p class="muted">This session is locked to that phone. No other phone can use the code.</p>
+      </div>
+
+      <!-- whole-batch progress -->
+      <div id="overall" class="hide" style="margin-top:1.5rem;text-align:left">
+        <div class="bar thick" role="progressbar" aria-label="Overall progress" id="overallTrack"
+             aria-valuemin="0" aria-valuemax="100"><i id="overallBar"></i></div>
+        <p class="muted" id="overallText" aria-live="polite"></p>
+      </div>
+
+      <div class="files" id="files"></div>
+
+      <div class="row">
+        <button class="ghost" id="btnFolder">Open folder</button>
+        <button id="btnStop">Done</button>
+      </div>
+    </section>
+  </main>
+
+  <footer id="footer"></footer>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const views = ['viewBooting', 'viewError', 'viewIdle', 'viewActive'];
+const show = (id) => views.forEach((v) => $(v).classList.toggle('hide', v !== id));
+
+const fmt = (b) => {
+  if (b < 1024) return b + ' B';
+  const u = ['KB', 'MB', 'GB'];
+  let v = b / 1024, i = 0;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return v.toFixed(v >= 10 ? 0 : 1) + ' ' + u[i];
+};
+const fmtEta = (s) =>
+  s < 60 ? `about ${Math.max(1, s)} s left`
+  : s < 3600 ? `about ${Math.round(s / 60)} min left`
+  : 'over an hour left';
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: body ? { 'content-type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) alert(data.error || 'Something went wrong');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// File list
+//
+// Rows are created once and then updated in place. Rebuilding the list's
+// HTML on every poll would destroy and recreate the Unpack buttons several
+// times a second, so a click could land on a button that no longer exists.
+// ---------------------------------------------------------------------------
+
+const rows = new Map();
+
+function fileRow(f) {
+  let row = rows.get(f.id);
+  if (row) return row;
+
+  const el = document.createElement('div');
+  el.className = 'file';
+  el.innerHTML = `
+    <div class="top">
+      <span class="name"></span>
+      <span class="right"><span class="state"></span><button class="ghost small hide">Unpack</button></span>
+    </div>
+    <div class="bar"><i></i></div>`;
+
+  row = {
+    el,
+    name: el.querySelector('.name'),
+    state: el.querySelector('.state'),
+    button: el.querySelector('button'),
+    bar: el.querySelector('.bar > i'),
+  };
+  row.name.textContent = f.name; // textContent: file names come from a phone
+  row.name.title = f.name;
+  row.button.onclick = () => unpack(f.id, row);
+  rows.set(f.id, row);
+  $('files').appendChild(el);
+  return row;
+}
+
+function renderFiles(files) {
+  const empty = $('files').querySelector('.empty');
+  if (!files.length) {
+    if (!empty) $('files').innerHTML = '<p class="muted empty" style="text-align:center">Waiting for files…</p>';
+    return;
+  }
+  empty?.remove();
+
+  for (const f of files) {
+    const row = fileRow(f);
+    const done = f.status === 'done';
+    row.el.classList.toggle('done', done);
+    row.bar.style.width = (done ? 100 : f.size ? Math.min(100, (f.received / f.size) * 100) : 0) + '%';
+
+    row.state.className = 'state';
+    if (f.status === 'error') {
+      row.state.classList.add('err');
+      row.state.textContent = f.error || 'failed'; // textContent, never innerHTML
+    } else if (f.extractedTo) {
+      row.state.classList.add('ok');
+      row.state.textContent = `unpacked to ${f.extractedTo}`;
+    } else if (f.extracting) {
+      row.state.textContent = 'unpacking…';
+    } else if (done) {
+      row.state.textContent = `saved · ${fmt(f.size)}`;
+    } else {
+      row.state.textContent = `${fmt(f.received)} / ${fmt(f.size)}`;
+    }
+
+    // Keep the button while its own request is in flight, then drop it.
+    if (!row.busy) row.button.classList.toggle('hide', !f.canExtract || f.extracting);
+  }
+}
+
+async function unpack(fileId, row) {
+  row.busy = true;
+  row.button.disabled = true;
+  row.button.textContent = 'Unpacking…';
+  try {
+    await post('/api/extract', { fileId });
+  } finally {
+    row.busy = false;
+    row.button.disabled = false;
+    row.button.textContent = 'Unpack';
+    tick();
+  }
+}
+
+function clearFiles() {
+  rows.clear();
+  $('files').innerHTML = '';
+}
+
+// ---------------------------------------------------------------------------
+// Overall progress
+// ---------------------------------------------------------------------------
+
+function renderOverall(t) {
+  const started = t && t.totalBytes > 0;
+  $('overall').classList.toggle('hide', !started);
+  if (!started) return;
+
+  const pct = Math.min(100, (t.bytesDone / t.totalBytes) * 100);
+  $('overallBar').style.width = pct + '%';
+  $('overallTrack').setAttribute('aria-valuenow', String(Math.round(pct)));
+
+  const text = $('overallText');
+  text.classList.toggle('stalled', t.stalled);
+
+  if (!t.active) {
+    text.textContent = `${t.filesDone} of ${t.totalFiles} file(s) received · ${fmt(t.totalBytes)}`;
+  } else if (t.stalled) {
+    // Honest about the likely cause, and reassuring about what is kept.
+    text.textContent = 'Waiting for the phone. It has probably lost signal — the transfer will continue when it is back.';
+  } else {
+    const parts = [
+      `File ${Math.min(t.filesDone + 1, t.totalFiles)} of ${t.totalFiles}`,
+      `${fmt(t.bytesDone)} of ${fmt(t.totalBytes)}`,
+    ];
+    if (t.bytesPerSec > 0) parts.push(`${fmt(t.bytesPerSec)}/s`);
+    if (t.etaSeconds !== null) parts.push(fmtEta(t.etaSeconds));
+    text.textContent = parts.join(' · ');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Polling
+// ---------------------------------------------------------------------------
+
+let lastQr = null;
+let lastSessionPin = null;
+let tokenExpiresAt = null;
+
+async function tick() {
+  let s;
+  try {
+    s = await (await fetch('/api/status')).json();
+  } catch {
+    return; // the app is closing
+  }
+
+  $('pcName').textContent = s.pcName;
+  $('footer').innerHTML = '';
+  const where = document.createElement('span');
+  where.append('Received files go to ');
+  const code = document.createElement('code');
+  code.textContent = s.session?.dir ?? s.receivedRoot;
+  where.append(code);
+  $('footer').append(where);
+
+  if (s.tunnel === 'error') {
+    $('errorText').textContent = s.tunnelError || '';
+    return show('viewError');
+  }
+  if (s.tunnel === 'starting') return show('viewBooting');
+
+  if (!s.session) {
+    if (lastSessionPin !== null) { clearFiles(); lastSessionPin = null; }
+    const note = $('closeNote');
+    note.classList.toggle('hide', !s.closeMessage);
+    note.classList.toggle('warn', s.closeReason === 'abuse');
+    if (s.closeMessage) note.textContent = s.closeMessage;
+    return show('viewIdle');
+  }
+
+  // A new session starts with an empty list.
+  if (s.session.pin !== lastSessionPin) { clearFiles(); lastSessionPin = s.session.pin; }
+
+  show('viewActive');
+
+  // Before pairing: show the code. After: hide it, so a second person in the
+  // room cannot scan a code that is already in use.
+  $('qrBlock').classList.toggle('hide', s.session.claimed);
+  $('pairedBlock').classList.toggle('hide', !s.session.claimed);
+
+  if (s.session.claimed) {
+    $('pinPaired').textContent = s.session.pin;
+  } else {
+    if (s.session.qr !== lastQr) {
+      lastQr = s.session.qr;
+      $('qrImg').src = s.session.qr;
+    }
+    $('pin').textContent = s.session.pin;
+    $('url').textContent = s.session.url;
+    tokenExpiresAt = s.session.tokenExpiresAt;
+  }
+
+  renderOverall(s.session.transfer);
+  renderFiles(s.session.files);
+}
+
+/** Counts down between token rotations, updated locally so it ticks smoothly. */
+setInterval(() => {
+  if (!tokenExpiresAt || $('qrBlock').classList.contains('hide')) return;
+  const left = Math.max(0, Math.round((tokenExpiresAt - Date.now()) / 1000));
+  $('rotate').textContent = left > 0 ? `For safety, this code changes in ${left}s.` : 'Getting a new code…';
+}, 250);
+
+$('btnStart').onclick = async () => { await post('/api/start'); tick(); };
+$('btnStop').onclick = async () => { await post('/api/stop'); tick(); };
+$('btnFolder').onclick = () => post('/api/open-folder');
+$('btnRetryTunnel').onclick = async () => { await post('/api/retry-tunnel'); tick(); };
+
+tick();
+setInterval(tick, 800);
+</script>
+</body>
+</html>
