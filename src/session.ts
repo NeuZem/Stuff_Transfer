@@ -367,8 +367,30 @@ async function createSessionDir(): Promise<string> {
   return dir;
 }
 
+/**
+ * A folder chosen on the PC page for this run of the app.
+ *
+ * Deliberately not saved to disk: lab PCs share one Windows account, so a
+ * remembered folder would silently send the next student's files into the
+ * previous student's folder.
+ */
+let customRoot: string | null = null;
+
+export function setCustomRoot(dir: string | null): void {
+  customRoot = dir;
+}
+
+export function isCustomRoot(): boolean {
+  return customRoot !== null;
+}
+
+/** Where files go: the folder chosen on the page, otherwise the default. */
 export function receivedRoot(): string {
-  // Explicit override wins, for tests and for anyone who wants a different folder.
+  return customRoot ?? defaultRoot();
+}
+
+/** --dir (or its environment variable), otherwise Desktop\Received. */
+export function defaultRoot(): string {
   if (process.env.STUFF_TRANSFER_DIR) return path.resolve(process.env.STUFF_TRANSFER_DIR);
 
   const candidates = [

@@ -30,6 +30,8 @@ A page opens in the browser. It takes about 40 seconds to get ready. Then click 
 
 Files are saved to `Desktop\Received\<date and time>\`. Use **Open folder** on the PC page to get to them.
 
+To save somewhere else, click **Change** under the folder path on the PC page, then type a path or click **Browse…**. It lasts until the app is closed, so the next student's files never end up in your folder.
+
 When you are finished, click **Done** on the PC. The code stops working immediately.
 
 ### Good to know
@@ -54,7 +56,8 @@ When you are finished, click **Done** on the PC. The code stops working immediat
 ```text
 npx stuff-transfer [options]
 
-  --dir <folder>   Save received files here (default: Desktop\Received)
+  --dir <folder>   Default save folder (normally Desktop\Received).
+                   Students can still change it for one run on the PC page.
   --no-open        Do not open the browser automatically
   -v, --version    Show the version
   -h, --help       Show this help
@@ -67,6 +70,7 @@ The upload address is on the public internet, so the app treats every phone requ
 | Protection | What it does |
 |---|---|
 | Separate public and private servers | The tunnel only ever reaches the upload server. The PC's own page and controls are on a second server that is never exposed, so *"a phone cannot pull files off this PC"* is structural, not a check someone could forget. |
+| Other websites are shut out | A website open in the PC's browser can still send requests to `127.0.0.1`. The PC server only accepts requests from its own page, and refuses foreign host names, which blocks DNS-rebinding attacks. |
 | 128-bit code in the QR | The only way into a session. Compared in constant time. |
 | The code changes every 90 seconds | Until a phone scans it, so a photo of an old QR is useless. A code replaced in the last 10 seconds still works, so a phone that scanned mid-change isn't punished. |
 | One phone per session | The first phone to scan claims it, and the PC hides the QR. Any other phone is refused, even with a valid code. |

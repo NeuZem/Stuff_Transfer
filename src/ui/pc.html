@@ -82,6 +82,23 @@
   @media (prefers-reduced-motion: reduce){ .spinner{animation-duration:3s} .bar > i{transition:none} }
   footer{margin-top:1rem;text-align:center;font-size:.8rem;color:var(--muted)}
   footer code{font-size:.72rem}
+  .save-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.45rem}
+  .badge{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--accent);
+         color:var(--accent);border-radius:99px;padding:.05rem .45rem}
+  button.link{background:none;border:0;padding:.15rem .25rem;color:var(--accent);font-size:.8rem;
+              font-weight:600;text-decoration:underline;text-underline-offset:3px}
+  .editor{margin:.9rem auto 0;max-width:34rem;text-align:left;background:var(--card);
+          border:1px solid var(--line);border-radius:12px;padding:1rem;box-shadow:var(--shadow)}
+  .editor label{display:block;font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.5rem}
+  .editor-row{display:flex;gap:.5rem}
+  .editor input{flex:1;min-width:0;font:inherit;font-size:.85rem;padding:.6rem .7rem;border-radius:8px;
+                border:1px solid var(--line);background:var(--inset);color:var(--text)}
+  .editor input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .editor-row button{padding:.55rem .9rem;font-size:.85rem;white-space:nowrap}
+  .editor-actions{display:flex;align-items:center;gap:.5rem;margin-top:.75rem}
+  .editor-actions .spacer{flex:1}
+  .editor .err{font-size:.82rem;margin:.55rem 0 0}
+  .hint{font-size:.75rem;color:var(--muted);margin:.75rem 0 0;line-height:1.5}
   .hide{display:none !important}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
@@ -160,7 +177,35 @@
     </section>
   </main>
 
-  <footer id="footer"></footer>
+  <footer>
+    <div class="save-row">
+      <span>Received files go to</span>
+      <code id="savePath"></code>
+      <span class="badge hide" id="saveCustomTag">custom</span>
+      <button class="link hide" id="btnChangeDir">Change</button>
+    </div>
+
+    <!-- Built once and never re-rendered by the status poll, so typing is safe. -->
+    <form class="editor hide" id="saveEditor" novalidate>
+      <label for="saveInput">Save received files to</label>
+      <div class="editor-row">
+        <input id="saveInput" type="text" spellcheck="false" autocomplete="off"
+               placeholder="D:\My Files" aria-describedby="saveError saveNote">
+        <button type="button" class="ghost" id="btnBrowse">Browse…</button>
+      </div>
+      <p class="err hide" id="saveError" role="alert"></p>
+      <div class="editor-actions">
+        <button type="button" class="ghost small" id="btnDefaultDir">Use default</button>
+        <span class="spacer"></span>
+        <button type="button" class="ghost small" id="btnCancelDir">Cancel</button>
+        <button type="submit" class="small" id="btnSaveDir">Save</button>
+      </div>
+      <p class="hint" id="saveNote">
+        Only until this app is closed. It goes back to the default next time, so the next
+        student's files never end up in your folder.
+      </p>
+    </form>
+  </footer>
 </div>
 
 <script type="module">
@@ -331,13 +376,7 @@ async function tick() {
   }
 
   $('pcName').textContent = s.pcName;
-  $('footer').innerHTML = '';
-  const where = document.createElement('span');
-  where.append('Received files go to ');
-  const code = document.createElement('code');
-  code.textContent = s.session?.dir ?? s.receivedRoot;
-  where.append(code);
-  $('footer').append(where);
+  renderSaveDir(s);
 
   if (s.tunnel === 'error') {
     $('errorText').textContent = s.tunnelError || '';
@@ -379,6 +418,109 @@ async function tick() {
   renderOverall(s.session.transfer);
   renderFiles(s.session.files);
 }
+
+// ---------------------------------------------------------------------------
+// Where received files are saved
+// ---------------------------------------------------------------------------
+
+let saveDir = null; // latest saveDir block from /api/status
+
+function renderSaveDir(s) {
+  saveDir = s.saveDir;
+  // During a session, show the session's own folder (it has the date in it).
+  $('savePath').textContent = s.session?.dir ?? saveDir.path;
+  $('saveCustomTag').classList.toggle('hide', !saveDir.isCustom);
+  $('btnChangeDir').classList.toggle('hide', saveDir.locked || editorOpen());
+  $('btnBrowse').classList.toggle('hide', !saveDir.canBrowse);
+  $('btnDefaultDir').title = 'Default: ' + saveDir.defaultPath;
+  $('btnDefaultDir').disabled = !saveDir.isCustom;
+
+  // A session started while the editor was open: the folder is now fixed.
+  if (saveDir.locked && editorOpen()) closeEditor();
+}
+
+const editorOpen = () => !$('saveEditor').classList.contains('hide');
+
+function openEditor() {
+  $('saveInput').value = saveDir?.path ?? '';
+  showSaveError(null);
+  $('saveEditor').classList.remove('hide');
+  $('btnChangeDir').classList.add('hide');
+  $('saveInput').focus();
+  $('saveInput').select();
+}
+
+function closeEditor() {
+  $('saveEditor').classList.add('hide');
+  if (saveDir && !saveDir.locked) $('btnChangeDir').classList.remove('hide');
+  $('btnChangeDir').focus();
+}
+
+function showSaveError(message) {
+  $('saveError').classList.toggle('hide', !message);
+  $('saveError').textContent = message ?? '';
+}
+
+function setEditorBusy(busy, label) {
+  for (const id of ['saveInput', 'btnBrowse', 'btnDefaultDir', 'btnCancelDir', 'btnSaveDir']) {
+    $(id).disabled = busy;
+  }
+  $('btnBrowse').textContent = busy && label ? label : 'Browse…';
+  if (!busy && saveDir) $('btnDefaultDir').disabled = !saveDir.isCustom;
+}
+
+/** POST that reports errors inside the editor instead of an alert box. */
+async function saveDirRequest(path, body) {
+  showSaveError(null);
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    showSaveError(data.error || 'Could not change the folder.');
+    return null;
+  }
+  return data;
+}
+
+$('btnChangeDir').onclick = openEditor;
+$('btnCancelDir').onclick = closeEditor;
+
+$('saveEditor').onsubmit = async (e) => {
+  e.preventDefault();
+  setEditorBusy(true);
+  const result = await saveDirRequest('/api/save-dir', { path: $('saveInput').value });
+  setEditorBusy(false);
+  if (result) { closeEditor(); tick(); }
+  else $('saveInput').focus();
+};
+
+$('btnBrowse').onclick = async () => {
+  // The Windows dialog opens on this PC, in front of the browser.
+  setEditorBusy(true, 'Opening…');
+  const result = await saveDirRequest('/api/save-dir/browse');
+  setEditorBusy(false);
+  if (result && !result.cancelled) { closeEditor(); tick(); }
+};
+
+$('btnDefaultDir').onclick = async () => {
+  setEditorBusy(true);
+  const result = await saveDirRequest('/api/save-dir/default');
+  setEditorBusy(false);
+  if (result) { closeEditor(); tick(); }
+};
+
+$('saveEditor').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeEditor();
+  // Enter in the path box saves. Handled explicitly rather than trusting
+  // implicit form submission, which not every environment performs.
+  if (e.key === 'Enter' && e.target === $('saveInput')) {
+    e.preventDefault();
+    $('saveEditor').requestSubmit();
+  }
+});
 
 /** Counts down between token rotations, updated locally so it ticks smoothly. */
 setInterval(() => {

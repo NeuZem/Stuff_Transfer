@@ -3,7 +3,7 @@
  * Firewall stays quiet and nothing outside this machine can reach it.
  */
 
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -14,12 +14,16 @@ import { ExtractError, extractZip } from './extract.js';
 import { MAX_SESSION_BYTES } from './config.js';
 import {
   CLOSE_MESSAGES,
+  defaultRoot,
   getSession,
+  isCustomRoot,
   lastCloseReason,
   receivedRoot,
+  setCustomRoot,
   startSession,
   stopSession,
 } from './session.js';
+import { SaveDirError, browseForFolder, canBrowse, validateSaveDir } from './save-dir.js';
 import { appState } from './state.js';
 
 const pcHtml = await readFile(fileURLToPath(new URL('./ui/pc.html', import.meta.url)), 'utf8');
@@ -27,8 +31,52 @@ const pcHtml = await readFile(fileURLToPath(new URL('./ui/pc.html', import.meta.
 /** Cached so we don't re-render the same QR on every status poll. */
 let qrCache: { url: string; dataUrl: string } | null = null;
 
+/**
+ * Only this app's own page may talk to this server.
+ *
+ * Binding to 127.0.0.1 keeps other computers out, but not other websites: a
+ * page open in this PC's browser can still send requests to 127.0.0.1. It
+ * cannot read the replies (the browser blocks that), but a plain POST still
+ * runs, which would let any website start sessions or quietly change where
+ * received files are saved. Two checks close that:
+ *
+ *   - Host must be 127.0.0.1 or localhost. Stops "DNS rebinding", where an
+ *     attacker's domain is re-pointed at 127.0.0.1 to become same-origin.
+ *   - Anything that changes state must come from this exact origin. Browsers
+ *     always send Origin (and Sec-Fetch-Site) on a cross-site POST.
+ *
+ * Requests without these headers (curl, our tests) come from a program
+ * already running on this PC, which could do anything anyway.
+ */
+function localOnly(): MiddlewareHandler {
+  return async (c, next) => {
+    const host = (c.req.header('host') ?? '').toLowerCase();
+    const hostname = host.replace(/:\d+$/, '');
+    if (hostname !== '127.0.0.1' && hostname !== 'localhost') {
+      return c.text('Forbidden', 403);
+    }
+
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      const origin = c.req.header('origin');
+      if (origin !== undefined && origin.toLowerCase() !== `http://${host}`) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+      const site = c.req.header('sec-fetch-site');
+      if (site !== undefined && site !== 'same-origin' && site !== 'none') {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+    }
+    await next();
+  };
+}
+
+/** Only one Windows folder dialog open at a time. */
+let browsing = false;
+
 export function createPcApp(): Hono {
   const app = new Hono();
+
+  app.use('*', localOnly());
 
   app.get('/', (c) => c.html(pcHtml));
 
@@ -81,6 +129,56 @@ export function createPcApp(): Hono {
     }
   });
 
+  // --- where received files are saved ------------------------------------
+
+  /** Changing folders mid-session would split one batch across two places. */
+  const lockedBySession = () =>
+    getSession() ? 'Click Done to finish this session before changing the folder.' : null;
+
+  /** Use a typed or pasted folder path. */
+  app.post('/api/save-dir', async (c) => {
+    const locked = lockedBySession();
+    if (locked) return c.json({ error: locked }, 409);
+
+    const { path: wanted } = await c.req.json<{ path?: string }>().catch(() => ({ path: undefined }));
+    try {
+      applySaveDir(await validateSaveDir(wanted));
+      return c.json(await buildStatus());
+    } catch (e) {
+      const message = e instanceof SaveDirError ? e.message : 'Could not use that folder.';
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  /** Pick a folder with the standard Windows dialog, then use it. */
+  app.post('/api/save-dir/browse', async (c) => {
+    const locked = lockedBySession();
+    if (locked) return c.json({ error: locked }, 409);
+    if (!canBrowse) return c.json({ error: 'Type the folder path instead.' }, 501);
+    if (browsing) return c.json({ error: 'The folder picker is already open.' }, 409);
+
+    browsing = true;
+    try {
+      const chosen = await browseForFolder(receivedRoot());
+      if (!chosen) return c.json({ cancelled: true, ...(await buildStatus()) });
+      applySaveDir(await validateSaveDir(chosen));
+      return c.json(await buildStatus());
+    } catch (e) {
+      const message = e instanceof SaveDirError ? e.message : 'Could not use that folder.';
+      return c.json({ error: message }, 400);
+    } finally {
+      browsing = false;
+    }
+  });
+
+  /** Go back to --dir, or Desktop\Received. */
+  app.post('/api/save-dir/default', async (c) => {
+    const locked = lockedBySession();
+    if (locked) return c.json({ error: locked }, 409);
+    setCustomRoot(null);
+    return c.json(await buildStatus());
+  });
+
   /** Open the received-files folder in the system file manager. */
   app.post('/api/open-folder', (c) => {
     const dir = getSession()?.dir ?? receivedRoot();
@@ -94,6 +192,13 @@ export function createPcApp(): Hono {
   return app;
 }
 
+/** Choosing the default folder by hand just means "use the default". */
+function applySaveDir(dir: string): void {
+  const same = (a: string, b: string) =>
+    process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+  setCustomRoot(same(dir, defaultRoot()) ? null : dir);
+}
+
 async function buildStatus() {
   const session = getSession();
 
@@ -104,6 +209,13 @@ async function buildStatus() {
     tunnelError: appState.tunnelError,
     maxSessionBytes: MAX_SESSION_BYTES,
     receivedRoot: receivedRoot(),
+    saveDir: {
+      path: receivedRoot(),
+      isCustom: isCustomRoot(),
+      defaultPath: defaultRoot(),
+      canBrowse,
+      locked: session !== null,
+    },
     // Why the previous session ended, so the page can explain itself.
     closeReason,
     closeMessage: closeReason ? CLOSE_MESSAGES[closeReason] : null,
