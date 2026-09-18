@@ -81,42 +81,6 @@ The upload address is on the public internet, so the app treats every phone requ
 
 Every row has automated tests. Run `npm test` to check them yourself.
 
-## Development
-
-```bash
-git clone https://github.com/NeuZem/Stuff_Transfer.git
-cd Stuff_Transfer
-npm install        # also builds dist/
-npm start
-```
-
-| Command | What it does |
-|---|---|
-| `npm test` | 63 tests: uploads, resume, security, time limits, zip safety. Fast, no network |
-| `npm run e2e` | The real app through a real tunnel, including the security boundary |
-| `npm run check` | Proves the tunnel works on this machine, then waits for a phone to connect |
-
-### How it fits together
-
-```text
-cli.ts               starts both servers and the tunnel
-├── server-pc.ts     127.0.0.1 only: the QR page, controls, unzipping
-├── server-phone.ts  the ONLY thing the tunnel exposes: upload routes
-├── tunnel.ts        cloudflared download, launch, cache-proof readiness
-├── session.ts       codes, pairing, time limits, save folder
-├── receiver.ts      chunk writing, resume state, hashing
-├── extract.ts       safe zip unpacking
-├── rate.ts          upload speed over a sliding window
-└── safety.ts        file name and path defences
-```
-
-### Lessons learned about Cloudflare quick tunnels
-
-1. **Never look up a new tunnel name too early.** It doesn't exist in DNS for the first few seconds, and `trycloudflare.com` tells DNS servers to remember "no such name" for **30 minutes**. An early lookup made the app report a working tunnel as broken, and a phone asking too early would have been locked out for half an hour. So the app never asks a caching DNS server about its own name. It talks to a Cloudflare edge IP directly, naming the host via TLS SNI, and asks `trycloudflare.com`'s own nameservers whether the name is published.
-2. **One success doesn't mean the tunnel is ready.** Measured on fresh tunnels, the route stays patchy for about 30 seconds, sometimes a minute, as Cloudflare's servers learn it. The app waits for 15 successes in a row, each on a fresh connection, before showing the QR. That's why start-up takes about 40 seconds.
-
-See [PLAN.md](PLAN.md) for the full design and history.
-
 ## License
 
 [MIT](LICENSE)
